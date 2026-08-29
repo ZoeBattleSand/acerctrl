@@ -37,6 +37,9 @@ namespace acerctrld {
 
     std::mutex values_file_mutex;
 
+	std::string last_button_rgb_command = "";
+
+    void handleRgb(const std::string&, bool);
 	void saveValue(const std::string&);
     void loadLastValues();
 
@@ -57,10 +60,20 @@ namespace acerctrld {
         loadLastValues();
     }
 
-    void usageModeRgbFlash(uint8_t mode) {
+    void reapplyButtonRgb() {
+		usleep(1650*1000); // 1650ms delay, about the duration of mode change flashing, required for controller to accept next command after
+		handleRgb(last_button_rgb_command, false);
+	}
+
+    void usageModeRgbFlash(uint8_t mode, bool reapply) {
         if (usage_mode_colors.contains(mode)) {
             auto [r, g, b] = usage_mode_colors.at(mode);
             acerhidrgb::rgbSet("keyboard", "mode_change", 100, 0, 0, r, g, b, 0x0F);
+
+			if (reapply && last_button_rgb_command != "") {
+				// return turbo button to previous state after mode change effect
+				std::jthread button_reapply(reapplyButtonRgb);
+			}
         }
     }
 
@@ -69,7 +82,7 @@ namespace acerctrld {
 			return;
 		}
 
-        usageModeRgbFlash(mode);
+        usageModeRgbFlash(mode, save);
 
 		saveValue(std::format("SET_USAGE_MODE {:d}", mode));
 	}
@@ -77,7 +90,7 @@ namespace acerctrld {
 	void cycleUsageModeAndRgb() {
 		uint8_t mode = acerhidhw::cycleUsageMode();
 
-        usageModeRgbFlash(mode);
+        usageModeRgbFlash(mode, true);
 
 		saveValue(std::format("SET_USAGE_MODE {:d}", mode));
 	}
@@ -93,6 +106,10 @@ namespace acerctrld {
             std::println("[ERR] Malformed RGB command!");
             return;
         }
+
+		if (device == "profile_button") {
+			last_button_rgb_command = cmd;
+		}
 
 		if (acerhidrgb::rgbSet(device, effect, brightness, speed, direction, r, g, b, zone)) {
 			saveValue(cmd);
