@@ -64,14 +64,16 @@ namespace acerctrld {
         }
     }
 
-	void setUsageModeAndRgb(uint8_t mode) {
+	void setUsageModeAndRgb(uint8_t mode, bool save) {
 		if (!acerhidhw::setUsageMode(mode)) {
 			return;
 		}
 
         usageModeRgbFlash(mode);
 
-		saveValue(std::format("SET_USAGE_MODE {:d}", mode));
+		if (save) {
+		    saveValue(std::format("SET_USAGE_MODE {:d}", mode));
+		}
 	}
 
 	void cycleUsageModeAndRgb() {
@@ -82,7 +84,7 @@ namespace acerctrld {
 		saveValue(std::format("SET_USAGE_MODE {:d}", mode));
 	}
 
-	void handleRgb(const std::string& cmd) {
+	void handleRgb(const std::string& cmd, bool save) {
 		std::string command_str, device, effect;
 		int brightness, speed, direction, r, g, b, zone;
 
@@ -94,7 +96,7 @@ namespace acerctrld {
             return;
         }
 
-		if (acerhidrgb::rgbSet(device, effect, brightness, speed, direction, r, g, b, zone)) {
+		if (acerhidrgb::rgbSet(device, effect, brightness, speed, direction, r, g, b, zone) && save) {
 			saveValue(cmd);
 		}
 	}
@@ -111,9 +113,7 @@ namespace acerctrld {
             return;
         }
 
-		if (acerhidhw::keyboardTimeoutSet(time)) {
-			saveValue(cmd);
-		}
+		acerhidhw::keyboardTimeoutSet(time);
 	}
 
 	void handleBatteryLimits(const std::string& cmd) {
@@ -131,7 +131,7 @@ namespace acerctrld {
     	acerhidhw::setBatteryLimits(status, lower, upper);
     }
 
-	void handleUsageMode(const std::string& cmd) {
+	void handleUsageMode(const std::string& cmd, bool save) {
 		std::string command_str;
 		int mode;
 		
@@ -143,10 +143,10 @@ namespace acerctrld {
             return;
         }
 
-		setUsageModeAndRgb(mode);
+		setUsageModeAndRgb(mode, save);
 	}
 
-	void handleCommand(const std::string& msg) {
+	void handleCommand(const std::string& msg, bool save) {
 		std::stringstream ss(msg);
 		std::string command;
 		ss >> command;
@@ -156,7 +156,7 @@ namespace acerctrld {
 				std::println("[WARN] Got RGB command but RGB features are unavailable");
 				return;
 			} else {
-				handleRgb(msg);
+				handleRgb(msg, save);
 			}
 		} else if (command == "SET_TIMEOUT") {
 			if (!hid_hw_available) {
@@ -170,7 +170,7 @@ namespace acerctrld {
 				std::println("[WARN] Got usage mode command but hardware features are unavailable");
 				return;
 			} else {
-				handleUsageMode(msg);
+				handleUsageMode(msg, save);
 			}
 		} else if (command == "SET_BATTERY_LIMITS") {
 			if (!hid_hw_available) {
@@ -199,7 +199,7 @@ namespace acerctrld {
 		if (values_file.is_open()) {
 			std::string line;
 			while(std::getline(values_file, line)) {
-				handleCommand(line);
+				handleCommand(line, false);
 			}
 		} else {
 			std::println("[ERR] Failed to open /var/lib/acerctrl/set_values!");
@@ -337,7 +337,7 @@ namespace acerctrld {
             if (n > 0) {
                 buf[n] = '\0';
                 std::string command(buf);
-                handleCommand(command);
+                handleCommand(command, true);
             }
 
 			close(client_fd);
