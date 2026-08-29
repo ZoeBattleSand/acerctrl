@@ -60,7 +60,7 @@ namespace acerctrld {
     void usageModeRgbFlash(uint8_t mode) {
         if (usage_mode_colors.contains(mode)) {
             auto [r, g, b] = usage_mode_colors.at(mode);
-            acerhidrgb::rgbSet("keyboard", "mode_change", 100, 0, 0, r, g, b, 0x0F);
+            acerhidrgb::rgbSet("profile_button", "mode_change", 100, 0, 0, r, g, b, 0);
         }
     }
 
@@ -189,9 +189,18 @@ namespace acerctrld {
 		}
 	}
 
+    void applyDefaultColors() {
+	    /* set rgb to white to stop rainbow puke if no config saved */
+	    if (acerctrld::hid_rgb_available) {
+		    acerhidrgb::rgbSet("keyboard", "static", 0x19, 0x00, 0x00, 255, 255, 255, 0x0F);
+		    acerhidrgb::rgbSet("lid", "static", 0x19, 0x00, 0x00, 255, 255, 255, 0x00);
+	    }
+	}
+
 	void loadLastValues() {
 		if (!std::filesystem::exists("/var/lib/acerctrl/set_values")) {
 			std::println("[ERR] Failed to load values from /var/lib/acerctrl/set_values!");
+			applyDefaultColors();
             return;
 		}
 
@@ -200,9 +209,12 @@ namespace acerctrld {
 			std::string line;
 			while(std::getline(values_file, line)) {
 				handleCommand(line);
+				// delay is needed for subsequent RGB commands to work properly, otherwise the controller may randomly ignore some of them
+				usleep(1650*1000); // 1650ms, derived experimentally, anything less than 1600ms causes issues
 			}
 		} else {
 			std::println("[ERR] Failed to open /var/lib/acerctrl/set_values!");
+			applyDefaultColors();
 			return;
 		}
 	}
@@ -368,12 +380,6 @@ int main(int argc, char *argv[]) {
 	if (!acerctrld::hid_rgb_available && !acerctrld::hid_hw_available) {
 		std::println("[ERR] No features available!");
 		return -1;
-	}
-
-	/* set rgb to white to stop rainbow puke if no config saved */
-	if (acerctrld::hid_rgb_available) {
-		acerhidrgb::rgbSet("keyboard", "static", 0x19, 0x00, 0x00, 255, 255, 255, 0x0F);
-		acerhidrgb::rgbSet("lid", "static", 0x19, 0x00, 0x00, 255, 255, 255, 0x00);
 	}
 
 	acerctrld::loadLastValues();
