@@ -8,6 +8,7 @@ Control RGB and various hardware functions of newer Acer laptops on Linux
 - Changing power profile via mode button
 
 ## How to Build/Install
+On Ubuntu/PopOS you'll need these first: `sudo apt install -y cmake ninja-build clang clang-tools-18 libstdc++-14-dev qt6-base-dev` (needs Clang, not GCC — the build uses C++23 modules).\
 Run `make` to build, then run `sudo make install` to install it. It will install to `/usr/local/bin` and `/usr/local/lib` by default.\
 *Note: the following instructions are for systemd-based systems. If you are not using systemd, figure it out. I believe in you.*\
 Run `systemctl enable --now acerctrld.service` to start and enable the service at boot.\
